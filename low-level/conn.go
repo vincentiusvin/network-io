@@ -33,7 +33,7 @@ func (fd SockFD) Close() error {
 }
 
 func (fd SockFD) AcceptConnection() (ConnFD, *syscall.SockaddrInet4, error) {
-	// this will immediately return if we set syscall.SOCK|NONBLOCK above and we don't have anything queued.
+	// this will immediately return if we set syscall.SOCK_NONBLOCK above and we don't have anything queued.
 	// fun!
 	nfd, sa, err := syscall.Accept(int(fd))
 	if err != nil {
