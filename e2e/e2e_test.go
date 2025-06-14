@@ -1,6 +1,8 @@
 package e2e_test
 
 import (
+	"crypto/rand"
+	"io"
 	"net"
 	"reflect"
 	"testing"
@@ -27,6 +29,18 @@ func TestConcurrency(t *testing.T) {
 	<-t2
 }
 
+func TestLotsOfData(t *testing.T) {
+	b := make([]byte, 1024000)
+	_, err := io.ReadFull(rand.Reader, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t1 := runTCPTest(t, b)
+
+	<-t1
+}
+
 func runTCPTest(t *testing.T, inData []byte) (done chan struct{}) {
 	done = make(chan struct{})
 
@@ -41,14 +55,11 @@ func runTCPTest(t *testing.T, inData []byte) (done chan struct{}) {
 			t.Error(err)
 		}
 
-		outBuf := make([]byte, 1024)
-		n, err := c.Read(outBuf)
-		if err != nil {
-			t.Error(err)
-		}
-		outData := outBuf[:n]
+		outData := make([]byte, len(inData))
+		io.ReadFull(c, outData)
+
 		if !reflect.DeepEqual(outData, inData) {
-			t.Errorf("wrong data: exp %v got %v", inData, outData)
+			t.Errorf("wrong data: exp %v(len %v) got %v(len %v)", inData[:5], len(inData), outData[:5], len(outData))
 		}
 	}()
 
