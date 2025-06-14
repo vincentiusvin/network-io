@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"io"
 	"net"
@@ -30,7 +31,7 @@ func TestConcurrency(t *testing.T) {
 }
 
 func TestLotsOfData(t *testing.T) {
-	b := make([]byte, 1024000)
+	b := make([]byte, 10240000)
 	_, err := io.ReadFull(rand.Reader, b)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +52,8 @@ func runTCPTest(t *testing.T, inData []byte) (done chan struct{}) {
 			t.Errorf("cannot connect to %v", ADDR)
 		}
 
-		if _, err = c.Write(inData); err != nil {
+		inReader := bytes.NewReader(inData)
+		if _, err = io.Copy(c, inReader); err != nil {
 			t.Error(err)
 		}
 
