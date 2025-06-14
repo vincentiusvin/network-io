@@ -33,7 +33,7 @@ func main() {
 	for {
 		b := make([]byte, 1024)
 		n, err := nfd.Read(b)
-		if err != nil {
+		if n == 0 || err != nil {
 			break
 		}
 		log.Print(string(b[:n]))
