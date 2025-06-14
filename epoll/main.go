@@ -89,26 +89,35 @@ func (s *server) Process(queueSize int, timeout int) error {
 }
 
 func (s *server) Close() error {
+	log.Println("Server closed")
 	return s.sockFD.Close()
 }
 
 func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) error {
-	b := make([]byte, 1024)
-	read, err := connFd.Read(b)
-	if read == 0 || err != nil {
-		return err
-	}
-	log.Printf("Read %v bytes", read)
+	for {
+		b := make([]byte, 1024)
+		read, err := connFd.Read(b)
+		if read == 0 {
+			return nil
+		}
 
-	written, err := connFd.Write(b[:read])
-	if read == 0 || err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+		log.Printf("Read %v bytes", read)
+
+		written, err := connFd.Write(b[:read])
+		if written == 0 {
+			return err
+		}
+		if err != nil {
+			return err
+		}
+		log.Printf("Sent %v bytes", written)
+		if written < read {
+			s.toWrite[connFd] = append(s.toWrite[connFd], b[written:read]...)
+		}
 	}
-	log.Printf("Sent %v bytes", written)
-	if written < read {
-		s.toWrite[connFd] = append(s.toWrite[connFd], b[written:read]...)
-	}
-	return nil
 }
 
 func (s *server) handleNewConnection(sockFd lowlevel.SockFD) error {
