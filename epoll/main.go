@@ -8,14 +8,21 @@ import (
 
 func main() {
 	s := NewServer(8000)
-	s.Listen()
+	if err := s.Listen(); err != nil {
+		panic(err)
+	}
+	for {
+		if err := s.Loop(1, -1); err != nil {
+			panic(err)
+		}
+	}
 }
 
 type server struct {
 	port int
 
-	sockFD   lowlevel.SockFD
-	sockEpFD int
+	sockFD lowlevel.SockFD
+	epfd   int
 }
 
 func NewServer(port int) *server {
@@ -32,32 +39,40 @@ func (s *server) Listen() error {
 	sock.SetNonblock(true)
 	s.sockFD = sock
 
-	epfd, err := setupEpoll(int(sock), unix.EPOLLIN)
+	epfd, err := unix.EpollCreate1(0)
 	if err != nil {
 		return err
 	}
-	s.sockEpFD = epfd
+	s.epfd = epfd
+
+	s.registerFDToEpoll(int(s.sockFD), unix.EPOLLIN)
+
 	return nil
 }
 
-func (s *server) Accept() error {
-	connQueue := 10
-	evs := make([]unix.EpollEvent, connQueue)
+func (s *server) Loop(queueSize int, timeout int) error {
+	evs := make([]unix.EpollEvent, queueSize)
 
-	n, err := unix.EpollWait(s.sockEpFD, evs, 10)
+	n, err := unix.EpollWait(s.epfd, evs, timeout)
 	if err != nil {
 		return err
 	}
 
 	for _, event := range evs[:n] {
-		currFd := lowlevel.SockFD(event.Fd)
-		if currFd != s.sockFD {
-			continue
+		if event.Fd == int32(s.sockFD) {
+			asSockFD := lowlevel.SockFD(event.Fd)
+			s.handleNewConnection(asSockFD)
+		} else {
+			asConnFD := lowlevel.ConnFD(event.Fd)
+			s.handleExistingConnection(asConnFD)
 		}
-		s.handleNewConnection(currFd)
 	}
 
 	return nil
+}
+
+func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) {
+
 }
 
 func (s *server) handleNewConnection(sockFd lowlevel.SockFD) {
@@ -67,20 +82,15 @@ func (s *server) handleNewConnection(sockFd lowlevel.SockFD) {
 	}
 	connFd.SetNonblock(true)
 
-	epfd, err := setupEpoll(int(connFd), unix.EPOLLIN)
+	s.registerFDToEpoll(int(sockFd), unix.EPOLL_CTL_ADD)
 }
 
-func setupEpoll(fd int, events uint32) (int, error) {
-	epfd, err := unix.EpollCreate1(0)
-	if err != nil {
-		return 0, err
-	}
-
+func (s *server) registerFDToEpoll(fd int, events uint32) error {
 	ev := new(unix.EpollEvent)
 	ev.Events = events
 	ev.Fd = int32(fd)
-	if err = unix.EpollCtl(epfd, unix.EPOLL_CTL_ADD, fd, ev); err != nil {
-		return 0, err
+	if err := unix.EpollCtl(s.epfd, unix.EPOLL_CTL_ADD, fd, ev); err != nil {
+		return err
 	}
-	return epfd, nil
+	return nil
 }
