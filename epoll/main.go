@@ -78,7 +78,7 @@ func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) error {
 	if n == 0 || err != nil {
 		return err
 	}
-	log.Printf("recv %v", string(b[n]))
+	log.Printf("recv %v", string(b[:n]))
 	return nil
 }
 
