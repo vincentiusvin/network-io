@@ -22,8 +22,9 @@ func main() {
 type server struct {
 	port int
 
-	sockFD lowlevel.SockFD
-	epfd   int
+	sockFD  lowlevel.SockFD
+	epfd    int
+	toWrite map[lowlevel.ConnFD][]byte
 }
 
 func NewServer(port int) *server {
@@ -65,7 +66,9 @@ func (s *server) Process(queueSize int, timeout int) error {
 			s.handleNewConnection(asSockFD)
 		} else {
 			asConnFD := lowlevel.ConnFD(event.Fd)
-			s.handleExistingConnection(asConnFD)
+			if event.Events&unix.EPOLLIN == unix.EPOLLIN {
+				s.handleExistingConnection(asConnFD)
+			}
 		}
 	}
 
@@ -74,11 +77,19 @@ func (s *server) Process(queueSize int, timeout int) error {
 
 func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) error {
 	b := make([]byte, 1024)
-	n, err := connFd.Read(b)
-	if n == 0 || err != nil {
+	read, err := connFd.Read(b)
+	if read == 0 || err != nil {
 		return err
 	}
-	log.Printf("recv %v", string(b[:n]))
+	log.Printf("recv %v", string(b[:read]))
+
+	written, err := connFd.Write(b[:read])
+	if read == 0 || err != nil {
+		return err
+	}
+	if written < read {
+		s.toWrite[connFd] = append(s.toWrite[connFd], b[written:read]...)
+	}
 	return nil
 }
 
@@ -89,7 +100,7 @@ func (s *server) handleNewConnection(sockFd lowlevel.SockFD) error {
 	}
 	connFd.SetNonblock(true)
 	log.Printf("conn %v:%v", conn.Addr, conn.Port)
-	s.registerFDToEpoll(int(connFd), unix.EPOLL_CTL_ADD)
+	s.registerFDToEpoll(int(connFd), unix.EPOLLIN|unix.EPOLLOUT|unix.EPOLLHUP)
 	return nil
 }
 
