@@ -2,6 +2,7 @@ package main
 
 import (
 	lowlevel "learn_io/low-level"
+	"log"
 
 	"golang.org/x/sys/unix"
 )
@@ -12,7 +13,7 @@ func main() {
 		panic(err)
 	}
 	for {
-		if err := s.Loop(1, -1); err != nil {
+		if err := s.Process(1, -1); err != nil {
 			panic(err)
 		}
 	}
@@ -50,7 +51,7 @@ func (s *server) Listen() error {
 	return nil
 }
 
-func (s *server) Loop(queueSize int, timeout int) error {
+func (s *server) Process(queueSize int, timeout int) error {
 	evs := make([]unix.EpollEvent, queueSize)
 
 	n, err := unix.EpollWait(s.epfd, evs, timeout)
@@ -71,18 +72,25 @@ func (s *server) Loop(queueSize int, timeout int) error {
 	return nil
 }
 
-func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) {
-
+func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) error {
+	b := make([]byte, 1024)
+	n, err := connFd.Read(b)
+	if n == 0 || err != nil {
+		return err
+	}
+	log.Printf("recv %v", string(b[n]))
+	return nil
 }
 
-func (s *server) handleNewConnection(sockFd lowlevel.SockFD) {
-	connFd, _, err := sockFd.AcceptConnection()
+func (s *server) handleNewConnection(sockFd lowlevel.SockFD) error {
+	connFd, conn, err := sockFd.AcceptConnection()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	connFd.SetNonblock(true)
-
-	s.registerFDToEpoll(int(sockFd), unix.EPOLL_CTL_ADD)
+	log.Printf("conn %v:%v", conn.Addr, conn.Port)
+	s.registerFDToEpoll(int(connFd), unix.EPOLL_CTL_ADD)
+	return nil
 }
 
 func (s *server) registerFDToEpoll(fd int, events uint32) error {
