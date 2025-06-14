@@ -33,6 +33,10 @@ func (fd SockFD) Close() error {
 	return unix.Close(int(fd))
 }
 
+func (fd SockFD) SetNonblock(nb bool) error {
+	return unix.SetNonblock(int(fd), nb)
+}
+
 func (fd SockFD) AcceptConnection() (ConnFD, *unix.SockaddrInet4, error) {
 	// this will immediately return if we set unix.SOCK_NONBLOCK above and we don't have anything queued.
 	// fun!
@@ -56,4 +60,8 @@ func (cd ConnFD) Write(b []byte) (int, error) {
 
 func (cd ConnFD) Close() error {
 	return unix.Close(int(cd))
+}
+
+func (cd ConnFD) SetNonblock(nb bool) error {
+	return unix.SetNonblock(int(cd), nb)
 }
