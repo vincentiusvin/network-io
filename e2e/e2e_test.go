@@ -56,7 +56,11 @@ func runTCPTest(t *testing.T, inData []byte) (done chan struct{}) {
 		}
 
 		outData := make([]byte, len(inData))
-		io.ReadFull(c, outData)
+		n, err := io.ReadFull(c, outData)
+		if err != nil {
+			t.Error(err)
+		}
+		outData = outData[:n]
 
 		if !reflect.DeepEqual(outData, inData) {
 			t.Errorf("wrong data: exp %v(len %v) got %v(len %v)", inData[:5], len(inData), outData[:5], len(outData))
