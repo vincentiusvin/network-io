@@ -21,3 +21,14 @@ func OpenSocket() (fd int, err error) {
 
 	return fd, nil
 }
+
+func AcceptConnection(fd int) (int, *syscall.SockaddrInet4, error) {
+	// this will immediately return if we set syscall.SOCK|NONBLOCK above and we don't have anything queued.
+	// fun!
+	nfd, sa, err := syscall.Accept(fd)
+	if err != nil {
+		return 0, nil, err
+	}
+	sa4 := sa.(*syscall.SockaddrInet4)
+	return nfd, sa4, nil
+}
