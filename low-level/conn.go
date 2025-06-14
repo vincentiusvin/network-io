@@ -2,8 +2,11 @@ package lowlevel
 
 import "syscall"
 
-func OpenSocket() (fd int, err error) {
-	fd, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM|syscall.SOCK_NONBLOCK, 0)
+type SockFD int
+type ConnFD int
+
+func OpenSocket() (SockFD, error) {
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM|syscall.SOCK_NONBLOCK, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -19,16 +22,16 @@ func OpenSocket() (fd int, err error) {
 		return 0, err
 	}
 
-	return fd, nil
+	return SockFD(fd), nil
 }
 
-func AcceptConnection(fd int) (int, *syscall.SockaddrInet4, error) {
+func (fd SockFD) AcceptConnection() (ConnFD, *syscall.SockaddrInet4, error) {
 	// this will immediately return if we set syscall.SOCK|NONBLOCK above and we don't have anything queued.
 	// fun!
-	nfd, sa, err := syscall.Accept(fd)
+	nfd, sa, err := syscall.Accept(int(fd))
 	if err != nil {
 		return 0, nil, err
 	}
 	sa4 := sa.(*syscall.SockaddrInet4)
-	return nfd, sa4, nil
+	return ConnFD(nfd), sa4, nil
 }

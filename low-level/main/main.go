@@ -10,7 +10,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	nfd, conn, err := lowlevel.AcceptConnection(fd)
+	nfd, conn, err := fd.AcceptConnection()
 	if err != nil {
 		panic(err)
 	}
