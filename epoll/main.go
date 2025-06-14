@@ -34,15 +34,13 @@ func main() {
 type server struct {
 	port int
 
-	sockFD  lowlevel.SockFD
-	epfd    int
-	toWrite map[lowlevel.ConnFD][]byte
+	sockFD lowlevel.SockFD
+	epfd   int
 }
 
 func NewServer(port int) *server {
 	return &server{
-		port:    8000,
-		toWrite: make(map[lowlevel.ConnFD][]byte),
+		port: 8000,
 	}
 }
 
@@ -108,15 +106,12 @@ func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) error {
 
 		written, err := connFd.Write(b[:read])
 		if written == 0 {
-			return err
+			return nil
 		}
 		if err != nil {
 			return err
 		}
 		log.Printf("Sent %v bytes", written)
-		if written < read {
-			s.toWrite[connFd] = append(s.toWrite[connFd], b[written:read]...)
-		}
 	}
 }
 
