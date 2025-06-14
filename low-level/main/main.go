@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-
 	fd, err := lowlevel.OpenSocket(8000)
 	if err != nil {
 		panic(err)

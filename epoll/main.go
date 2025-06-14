@@ -1,29 +1,29 @@
 package main
 
 import (
-	"syscall"
+	"golang.org/x/sys/unix"
 )
 
 func main() {
 }
 
 func epoll() {
-	epfd, err := syscall.EpollCreate1(0)
+	epfd, err := unix.EpollCreate1(0)
 	if err != nil {
 		panic(err)
 	}
-	defer syscall.Close(epfd)
+	defer unix.Close(epfd)
 
-	ev := new(syscall.EpollEvent)
-	ev.Events = syscall.EPOLLIN
-	if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, 0, ev); err != nil {
+	ev := new(unix.EpollEvent)
+	ev.Events = unix.EPOLLIN
+	if err = unix.EpollCtl(epfd, unix.EPOLL_CTL_ADD, 0, ev); err != nil {
 		panic(err)
 	}
 
 	num := 10
-	evs := make([]syscall.EpollEvent, num)
+	evs := make([]unix.EpollEvent, num)
 	for {
-		_, err := syscall.EpollWait(epfd, evs, 3000)
+		_, err := unix.EpollWait(epfd, evs, 3000)
 		if err != nil {
 			break
 		}
