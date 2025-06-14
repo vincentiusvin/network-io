@@ -3,6 +3,8 @@ package main
 import (
 	lowlevel "learn_io/low-level"
 	"log"
+	"os"
+	"os/signal"
 
 	"golang.org/x/sys/unix"
 )
@@ -12,6 +14,16 @@ func main() {
 	if err := s.Listen(); err != nil {
 		panic(err)
 	}
+	defer s.Close()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		s.Close()
+		os.Exit(1)
+	}()
+
 	for {
 		if err := s.Process(1, -1); err != nil {
 			panic(err)
@@ -73,6 +85,10 @@ func (s *server) Process(queueSize int, timeout int) error {
 	}
 
 	return nil
+}
+
+func (s *server) Close() error {
+	return s.sockFD.Close()
 }
 
 func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) error {
