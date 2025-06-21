@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	lowlevel "learn_io/low-level"
 	"log"
 	"os"
@@ -25,7 +26,7 @@ func main() {
 	}()
 
 	for {
-		if err := s.Process(1, -1); err != nil {
+		if err := s.Process(100, 100); err != nil {
 			panic(err)
 		}
 	}
@@ -68,17 +69,50 @@ func (s *server) Process(queueSize int, timeout int) error {
 
 	n, err := unix.EpollWait(s.epfd, evs, timeout)
 	if err != nil {
+		if err == unix.EINTR {
+			return nil
+		}
 		return err
+	}
+
+	log.Printf("Epoll wait returned %v events", n)
+
+	if n == 0 {
+		return nil
 	}
 
 	for _, event := range evs[:n] {
 		if event.Fd == int32(s.sockFD) {
+			log.Printf("Processing fd %v (new)", event.Fd)
 			asSockFD := lowlevel.SockFD(event.Fd)
-			s.handleNewConnection(asSockFD)
+			err := s.handleNewConnection(asSockFD)
+			if err != nil {
+				return err
+			}
 		} else {
+			isIn := event.Events&unix.EPOLLIN == unix.EPOLLIN
+			isOut := event.Events&unix.EPOLLOUT == unix.EPOLLOUT
+			isHup := event.Events&unix.EPOLLHUP == unix.EPOLLHUP
+			msg := fmt.Sprintf("Processing fd %v (old) events:", event.Fd)
+			if isIn {
+				msg += " in"
+			}
+			if isOut {
+				msg += " out"
+			}
+			if isHup {
+				msg += " hup"
+			}
+			log.Print(msg)
+
 			asConnFD := lowlevel.ConnFD(event.Fd)
-			if event.Events&unix.EPOLLIN == unix.EPOLLIN {
-				s.handleExistingConnection(asConnFD)
+			if isIn {
+				err := s.handleExistingConnectionIn(asConnFD)
+				if err != nil {
+					return err
+				}
+			} else {
+				asConnFD.Close()
 			}
 		}
 	}
@@ -91,26 +125,32 @@ func (s *server) Close() error {
 	return s.sockFD.Close()
 }
 
-func (s *server) handleExistingConnection(connFd lowlevel.ConnFD) error {
+func (s *server) handleExistingConnectionIn(connFd lowlevel.ConnFD) error {
 	for {
 		b := make([]byte, 1024)
 		read, err := connFd.Read(b)
+		log.Printf("fd %v read %v bytes", connFd, read)
 		if read == 0 {
+			connFd.Close()
 			return nil
 		}
 
 		if err != nil {
+			if err == unix.EAGAIN {
+				return nil
+			}
 			return err
 		}
-		log.Printf("Read %v bytes", read)
 
 		written, err := connFd.Write(b[:read])
+		log.Printf("fd %v write %v bytes", connFd, read)
 		if written == 0 {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
+
 		log.Printf("Sent %v bytes", written)
 	}
 }

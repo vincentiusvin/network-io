@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"io"
+	"log"
 	"net"
 	"reflect"
 	"testing"
@@ -23,11 +24,21 @@ func TestEcho(t *testing.T) {
 }
 
 func TestConcurrency(t *testing.T) {
-	t1 := runTCPTest(t, []byte("123456"))
-	t2 := runTCPTest(t, []byte("123457"))
+	num := 1000
 
-	<-t1
-	<-t2
+	c := make(chan struct{})
+	for range num {
+		go func() {
+			<-runTCPTest(t, []byte("123456"))
+			c <- struct{}{}
+		}()
+	}
+
+	for i := range num {
+		<-c
+		log.Printf("%v / %v requests finished", i, num)
+	}
+
 }
 
 func TestLotsOfData(t *testing.T) {
