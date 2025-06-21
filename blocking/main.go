@@ -2,9 +2,15 @@ package main
 
 import (
 	lowlevel "learn_io/low-level"
+	"log"
 	"os"
 	"os/signal"
+	"runtime"
+	"sync"
+	"time"
 )
+
+var waiting sync.Map
 
 func main() {
 	s := NewServer(8000)
@@ -20,6 +26,19 @@ func main() {
 		os.Exit(1)
 	}()
 
+	go func() {
+		for {
+			log.Print("routines:", runtime.NumGoroutine())
+			waiting.Range(
+				func(key, value any) bool {
+					log.Printf("fd %v status %v", key, value)
+					return true
+				},
+			)
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
 	for {
 		nfd, err := s.Accept()
 		if err != nil {
@@ -31,13 +50,18 @@ func main() {
 
 func handleConnection(connFD lowlevel.ConnFD) {
 	defer connFD.Close()
+
 	for {
 		b := make([]byte, 1024)
+		waiting.Store(connFD, "reading")
 		n, err := connFD.Read(b)
+		waiting.Delete(connFD)
 		if err != nil || n == 0 {
 			return
 		}
+		waiting.Store(connFD, "writing")
 		n, err = connFD.Write(b[:n])
+		waiting.Delete(connFD)
 		if err != nil || n == 0 {
 			return
 		}

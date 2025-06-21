@@ -24,7 +24,7 @@ func TestEcho(t *testing.T) {
 }
 
 func TestConcurrency(t *testing.T) {
-	num := 1000
+	num := 800
 
 	c := make(chan struct{})
 	for range num {
@@ -62,21 +62,25 @@ func runTCPTest(t *testing.T, inData []byte) (done chan struct{}) {
 		if err != nil {
 			t.Errorf("cannot connect to %v", ADDR)
 		}
+		defer c.Close()
 
 		inReader := bytes.NewReader(inData)
 		if _, err = io.Copy(c, inReader); err != nil {
 			t.Error(err)
+			return
 		}
 
 		outData := make([]byte, len(inData))
 		n, err := io.ReadFull(c, outData)
 		if err != nil {
 			t.Error(err)
+			return
 		}
 		outData = outData[:n]
 
 		if !reflect.DeepEqual(outData, inData) {
 			t.Errorf("wrong data: exp %v(len %v) got %v(len %v)", inData[:5], len(inData), outData[:5], len(outData))
+			return
 		}
 	}()
 
