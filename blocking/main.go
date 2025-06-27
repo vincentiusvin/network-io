@@ -49,22 +49,45 @@ func main() {
 }
 
 func handleConnection(connFD lowlevel.ConnFD) {
-	defer connFD.Close()
+	log.Printf("got new connection: allocating to fd %v", connFD)
+
+	defer func() {
+		log.Printf("closing fd %v", connFD)
+		connFD.Close()
+	}()
 
 	for {
 		b := make([]byte, 1024)
+
 		waiting.Store(connFD, "reading")
+		log.Printf("reading from fd %v", connFD)
 		n, err := connFD.Read(b)
 		waiting.Delete(connFD)
-		if err != nil || n == 0 {
+
+		if err != nil {
+			log.Printf("reading fd %v error %v", connFD, err)
 			return
 		}
+		if n == 0 {
+			log.Printf("reading fd %v returns 0 bytes", connFD)
+			return
+		}
+		log.Printf("read %v bytes from fd %v", n, connFD)
+
 		waiting.Store(connFD, "writing")
+		log.Printf("writing to fd %v", connFD)
 		n, err = connFD.Write(b[:n])
 		waiting.Delete(connFD)
-		if err != nil || n == 0 {
+
+		if err != nil {
+			log.Printf("writing fd %v error %v", connFD, err)
 			return
 		}
+		if n == 0 {
+			log.Printf("writing fd %v returns 0 bytes", connFD)
+			return
+		}
+		log.Printf("written %v bytes to fd %v", n, connFD)
 	}
 }
 
