@@ -9,6 +9,9 @@ stuffs to write about:
 
    I want to find an exact threshold for this rather than just a "big number" but that doesn't seem possible since modern kernels auto tunes the value. Or maybe just my skill issue
 
+   Also the native net.conn implementation suffers from the same issue,
+   but it appears to only manifest at a way higher payload though.
+
 2. Is it possible for a closed TCP connection to be reopened if a packet arrives after FIN?
    No it isn't actual problem is number 3
 

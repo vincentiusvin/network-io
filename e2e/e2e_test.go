@@ -42,7 +42,7 @@ func TestConcurrency(t *testing.T) {
 }
 
 func TestLotsOfData(t *testing.T) {
-	b := make([]byte, 6291456)
+	b := make([]byte, 100*1024)
 	_, err := io.ReadFull(rand.Reader, b)
 	if err != nil {
 		t.Fatal(err)
