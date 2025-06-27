@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	lowlevel "learn_io/low-level"
 	"log"
 	"os"
@@ -75,11 +76,11 @@ func (s *server) Process(queueSize int, timeout int) error {
 		return err
 	}
 
-	log.Printf("Epoll wait returned %v events", n)
-
 	if n == 0 {
 		return nil
 	}
+
+	log.Printf("Epoll wait returned %v events", n)
 
 	for _, event := range evs[:n] {
 		if event.Fd == int32(s.sockFD) {
@@ -125,34 +126,60 @@ func (s *server) Close() error {
 	return s.sockFD.Close()
 }
 
-func (s *server) handleExistingConnectionIn(connFd lowlevel.ConnFD) error {
+// return non nil error if there is something that we cannot handle
+func (s *server) handleExistingConnectionIn(connFD lowlevel.ConnFD) error {
 	for {
-		b := make([]byte, 1024)
-		read, err := connFd.Read(b)
-		log.Printf("fd %v read %v bytes", connFd, read)
-		if read == 0 {
-			connFd.Close()
-			return nil
-		}
-
+		b, err := readConnection(connFD)
 		if err != nil {
+			if err == io.EOF {
+				connFD.Close()
+				return nil
+			}
 			if err == unix.EAGAIN {
 				return nil
 			}
+
 			return err
 		}
 
-		written, err := connFd.Write(b[:read])
-		log.Printf("fd %v write %v bytes", connFd, read)
-		if written == 0 {
-			return nil
-		}
-		if err != nil {
+		if err := writeConnection(b, connFD); err != nil {
 			return err
 		}
-
-		log.Printf("Sent %v bytes", written)
 	}
+}
+
+func readConnection(connFD lowlevel.ConnFD) ([]byte, error) {
+	b := make([]byte, 1024)
+
+	log.Printf("reading from fd %v", connFD)
+	read, err := connFD.Read(b)
+
+	if err != nil {
+		log.Printf("reading fd %v error %v", connFD, err)
+		return nil, err
+	}
+	if read == 0 {
+		log.Printf("reading fd %v returns 0 bytes", connFD)
+		return nil, io.EOF
+	}
+	log.Printf("fd %v read %v bytes", connFD, read)
+	return b, nil
+}
+
+func writeConnection(b []byte, connFD lowlevel.ConnFD) error {
+	log.Printf("writing to fd %v", connFD)
+	n, err := connFD.Write(b)
+
+	if err != nil {
+		log.Printf("writing fd %v error %v", connFD, err)
+		return err
+	}
+	if n == 0 {
+		log.Printf("writing fd %v returns 0 bytes", connFD)
+		return nil
+	}
+	log.Printf("written %v bytes to fd %v", n, connFD)
+	return nil
 }
 
 func (s *server) handleNewConnection(sockFd lowlevel.SockFD) error {

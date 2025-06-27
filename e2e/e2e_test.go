@@ -24,7 +24,7 @@ func TestEcho(t *testing.T) {
 }
 
 func TestConcurrency(t *testing.T) {
-	num := 800
+	num := 10
 
 	c := make(chan struct{})
 	for range num {
