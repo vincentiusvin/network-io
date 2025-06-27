@@ -80,21 +80,19 @@ func (s *server) Process(queueSize int, timeout int) error {
 		return nil
 	}
 
-	log.Printf("Epoll wait returned %v events", n)
+	log.Printf("epoll wait returned %v events", n)
 
 	for _, event := range evs[:n] {
 		if event.Fd == int32(s.sockFD) {
-			log.Printf("Processing fd %v (new)", event.Fd)
 			asSockFD := lowlevel.SockFD(event.Fd)
-			err := s.handleNewConnection(asSockFD)
-			if err != nil {
-				return err
+			if err := s.handleNewConnection(asSockFD); err != nil {
+				return fmt.Errorf("cannot handle new connection: %v", err)
 			}
 		} else {
 			isIn := event.Events&unix.EPOLLIN == unix.EPOLLIN
 			isOut := event.Events&unix.EPOLLOUT == unix.EPOLLOUT
 			isHup := event.Events&unix.EPOLLHUP == unix.EPOLLHUP
-			msg := fmt.Sprintf("Processing fd %v (old) events:", event.Fd)
+			msg := fmt.Sprintf("processing fd %v (old) events:", event.Fd)
 			if isIn {
 				msg += " in"
 			}
@@ -110,9 +108,10 @@ func (s *server) Process(queueSize int, timeout int) error {
 			if isIn {
 				err := s.handleExistingConnectionIn(asConnFD)
 				if err != nil {
-					return err
+					return fmt.Errorf("cannot handle existing connection: %v", err)
 				}
 			} else {
+				log.Printf("closing fd %v", asConnFD)
 				asConnFD.Close()
 			}
 		}
@@ -139,11 +138,11 @@ func (s *server) handleExistingConnectionIn(connFD lowlevel.ConnFD) error {
 				return nil
 			}
 
-			return err
+			return fmt.Errorf("read error: %v", err)
 		}
 
 		if err := writeConnection(b, connFD); err != nil {
-			return err
+			return fmt.Errorf("write error: %v", err)
 		}
 	}
 }
@@ -152,18 +151,18 @@ func readConnection(connFD lowlevel.ConnFD) ([]byte, error) {
 	b := make([]byte, 1024)
 
 	log.Printf("reading from fd %v", connFD)
-	read, err := connFD.Read(b)
+	n, err := connFD.Read(b)
 
 	if err != nil {
 		log.Printf("reading fd %v error %v", connFD, err)
 		return nil, err
 	}
-	if read == 0 {
+	if n == 0 {
 		log.Printf("reading fd %v returns 0 bytes", connFD)
 		return nil, io.EOF
 	}
-	log.Printf("fd %v read %v bytes", connFD, read)
-	return b, nil
+	log.Printf("read %v bytes from fd %v", n, connFD)
+	return b[:n], nil
 }
 
 func writeConnection(b []byte, connFD lowlevel.ConnFD) error {
@@ -183,13 +182,13 @@ func writeConnection(b []byte, connFD lowlevel.ConnFD) error {
 }
 
 func (s *server) handleNewConnection(sockFd lowlevel.SockFD) error {
-	connFd, conn, err := sockFd.AcceptConnection()
+	connFD, conn, err := sockFd.AcceptConnection()
 	if err != nil {
 		return err
 	}
-	connFd.SetNonblock(true)
-	log.Printf("conn %v:%v", conn.Addr, conn.Port)
-	s.registerFDToEpoll(int(connFd), unix.EPOLLIN|unix.EPOLLOUT|unix.EPOLLHUP)
+	connFD.SetNonblock(true)
+	log.Printf("got new connection from port %v: allocating to fd %v", conn.Port, connFD)
+	s.registerFDToEpoll(int(connFD), unix.EPOLLIN|unix.EPOLLOUT|unix.EPOLLHUP)
 	return nil
 }
 
