@@ -8,3 +8,16 @@ stuffs to write about:
    ss -tulpna
 
    I want to find an exact threshold for this rather than just a "big number" but that doesn't seem possible since modern kernels auto tunes the value. Or maybe just my skill issue
+
+2. Is it possible for a closed TCP connection to be reopened if a packet arrives after FIN?
+   No it isn't actual problem is number 3
+
+3. Syn retransmission triggers two network connections?
+   2025/06/27 19:25:32 got new connection from port 56424: allocating to fd 45
+   2025/06/27 19:25:32 got new connection from port 56424: allocating to fd 18
+
+   ![alt text](image.png)
+
+   Okay, this only happens if your listen.2 backlog is too small!
+
+also, there is something called the TCP simultaneuous open. Rare and obscure though.

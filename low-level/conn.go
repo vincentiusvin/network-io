@@ -22,7 +22,7 @@ func OpenSocket(port int) (SockFD, error) {
 		return 0, err
 	}
 
-	if err = unix.Listen(fd, 10); err != nil {
+	if err = unix.Listen(fd, 1024); err != nil {
 		return 0, err
 	}
 

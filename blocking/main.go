@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 var waiting sync.Map
@@ -40,16 +42,16 @@ func main() {
 	}()
 
 	for {
-		nfd, err := s.Accept()
+		nfd, info, err := s.Accept()
 		if err != nil {
 			panic(err)
 		}
-		go handleConnection(nfd)
+		go handleConnection(nfd, info)
 	}
 }
 
-func handleConnection(connFD lowlevel.ConnFD) {
-	log.Printf("got new connection: allocating to fd %v", connFD)
+func handleConnection(connFD lowlevel.ConnFD, info *unix.SockaddrInet4) {
+	log.Printf("got new connection from port %v: allocating to fd %v", info.Port, connFD)
 
 	defer func() {
 		log.Printf("closing fd %v", connFD)
@@ -111,14 +113,10 @@ func (s *server) Listen() error {
 	return nil
 }
 
-func (s *server) Accept() (lowlevel.ConnFD, error) {
-	nfd, _, err := s.sockFD.AcceptConnection()
-	if err != nil {
-		return lowlevel.ConnFD(0), err
-	}
-	return nfd, nil
+func (s *server) Accept() (lowlevel.ConnFD, *unix.SockaddrInet4, error) {
+	return s.sockFD.AcceptConnection()
 }
 
-func (s *server) Close() {
-	s.sockFD.Close()
+func (s *server) Close() error {
+	return s.sockFD.Close()
 }
