@@ -89,30 +89,12 @@ func (s *server) Process(queueSize int, timeout int) error {
 				return fmt.Errorf("cannot handle new connection: %v", err)
 			}
 		} else {
-			isIn := event.Events&unix.EPOLLIN == unix.EPOLLIN
-			isOut := event.Events&unix.EPOLLOUT == unix.EPOLLOUT
-			isHup := event.Events&unix.EPOLLHUP == unix.EPOLLHUP
-			msg := fmt.Sprintf("processing fd %v (old) events:", event.Fd)
-			if isIn {
-				msg += " in"
-			}
-			if isOut {
-				msg += " out"
-			}
-			if isHup {
-				msg += " hup"
-			}
-			log.Print(msg)
+			log.Printf("processing fd %v", event.Fd)
 
 			asConnFD := lowlevel.ConnFD(event.Fd)
-			if isIn {
-				err := s.handleExistingConnectionIn(asConnFD)
-				if err != nil {
-					return fmt.Errorf("cannot handle existing connection: %v", err)
-				}
-			} else {
-				log.Printf("closing fd %v", asConnFD)
-				asConnFD.Close()
+			err := s.handleExistingConnectionIn(asConnFD)
+			if err != nil {
+				return fmt.Errorf("cannot handle existing connection: %v", err)
 			}
 		}
 	}
@@ -131,8 +113,8 @@ func (s *server) handleExistingConnectionIn(connFD lowlevel.ConnFD) error {
 		b, err := readConnection(connFD)
 		if err != nil {
 			if err == io.EOF {
-				connFD.Close()
-				return nil
+				log.Printf("closing fd %v", connFD)
+				return connFD.Close()
 			}
 			if err == unix.EAGAIN {
 				return nil
@@ -188,7 +170,7 @@ func (s *server) handleNewConnection(sockFd lowlevel.SockFD) error {
 	}
 	connFD.SetNonblock(true)
 	log.Printf("got new connection from port %v: allocating to fd %v", conn.Port, connFD)
-	s.registerFDToEpoll(int(connFD), unix.EPOLLIN|unix.EPOLLOUT|unix.EPOLLHUP)
+	s.registerFDToEpoll(int(connFD), unix.EPOLLIN)
 	return nil
 }
 
