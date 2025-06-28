@@ -23,4 +23,7 @@ stuffs to write about:
 
    Okay, this only happens if your listen.2 backlog is too small!
 
+4. Raw vs non raw syscalls in go and how it relates to the scheduler. Very fun.
+   https://stackoverflow.com/questions/16977988/details-of-syscall-rawsyscall-syscall-syscall-in-go
+
 also, there is something called the TCP simultaneuous open. Rare and obscure though.
