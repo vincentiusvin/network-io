@@ -1,3 +1,21 @@
+uring doesn't work on podman, so use colima instead
+
+to run, execute run.sh and choose the variant
+1. blocking
+```bash
+./run.sh blocking
+```
+
+2. epoll
+```bash
+./run.sh epoll
+```
+
+3. uring
+```bash
+./run.sh uring
+```
+
 stuffs to write about:
 
 1. exceeding the kernel's write buffer. your write() gets blocked until the client calls read()
