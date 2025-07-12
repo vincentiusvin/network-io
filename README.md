@@ -44,4 +44,7 @@ stuffs to write about:
 4. Raw vs non raw syscalls in go and how it relates to the scheduler. Very fun.
    https://stackoverflow.com/questions/16977988/details-of-syscall-rawsyscall-syscall-syscall-in-go
 
+5. Writing ring buffers 
+   https://www.snellman.net/blog/archive/2016-12-13-ring-buffers/
+
 also, there is something called the TCP simultaneuous open. Rare and obscure though.
