@@ -1,0 +1,9 @@
+services:
+  server:
+    container_name: server
+    build: "."
+    init: true
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - .:/app
